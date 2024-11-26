@@ -1,0 +1,251 @@
+---
+title: "Coding Challenge"
+author: "Alejandro Leon-Romero"
+date: "2024-11-21"
+output: html_document
+---
+final_df is on line 195
+```{r Libraries}
+library(dplyr)
+library(rempsyc)
+```
+
+```{r Data}
+load("CodeChallenge2024.Rdata")
+IDs <- read.delim("IDs.txt")
+```
+Part a
+```{r Cleaning}
+protect_df <- HAM_protect %>% 
+  select(ID, timepoint, bq_date, fug_date, contains("ham_")) %>%
+  select(!contains(paste0("ham_3", letters[1:5]))) %>%
+  left_join(id_map, by = c("ID" = "old_id")) %>%
+  select(ID = new_id, everything(), -ID) %>%
+  filter(!if_all(contains("ham_"), is.na)) %>%
+  mutate(date = coalesce(bq_date, fug_date)) %>%
+  select(-bq_date, -fug_date) %>%
+  relocate(date, .after = 2)
+
+sleep_df <- HAM_sleep %>%
+  select(ID, timepoint, bq_date, fug_date, contains("ham_")) %>%
+  select(!contains(paste0("ham_3", letters[1:5]))) %>%
+  filter(!if_all(contains("ham_"), is.na)) %>%
+  mutate(date = coalesce(bq_date, fug_date)) %>%
+  select(-bq_date, -fug_date) %>%
+  relocate(date, .after = 2)
+
+df <- rbind(protect_df, sleep_df) %>% 
+  mutate(across(contains("ham_"), as.numeric))
+```
+
+```{r Interpolating}
+missing_items <- list()
+for(id in unique(df$ID)){
+  temp_df <- df %>% filter(ID == id)
+  if(nrow(temp_df %>% filter(if_any(contains("ham_"), is.na)))){
+    missing_items[length(missing_items) + 1] <- id
+  }
+}
+
+missing_items_df <- df %>% filter(ID %in% missing_items)
+
+
+#Solution using the median of that item across all visits
+#interpolated_df <- missing_items_df[0, ]
+#for(id in missing_items){
+#  temp_df <- missing_items_df %>% filter(ID == id)
+#  temp_items <- temp_df %>% select(contains("ham_"))
+#  temp_col <- colnames(temp_items)[colSums(is.na(temp_items)) > 0]
+#  temp_df[[temp_col]][is.na(temp_df[[temp_col]])] <- median(temp_df[[temp_col]], na.rm = TRUE)
+#  start_index <- nrow(interpolated_df) + 1
+#  end_index <- nrow(interpolated_df) + nrow(temp_df)
+#  interpolated_df[start_index:end_index, ] <- temp_df
+#}
+
+#Solution using the median of the current visit
+interpolated_df <- missing_items_df
+for(i in 1:nrow(missing_items_df)){
+  temp_row <- missing_items_df[i, ] %>% select(contains("ham_"))
+  if(any(is.na(temp_row))){
+    temp_median <- median(unlist(temp_row), na.rm = TRUE)
+    temp_row[is.na(temp_row)] <- temp_median
+  }
+  
+  interpolated_df[i, names(temp_row)] <- temp_row
+}
+
+filtered_df <- df %>% filter(!ID %in% missing_items)
+
+interpolated_df <- rbind(filtered_df, interpolated_df)
+```
+Part b and c
+```{r Missing Dates}
+missing_dates <- list()
+for(id in unique(protect_df$ID)){
+  temp_df <- protect_df %>% filter(ID == id)
+  latest_entry <- tail(temp_df, 1)
+  if(is.na(latest_entry$date)){
+    missing_dates[length(missing_dates) + 1] <- id
+  }
+}
+
+dual_participants <- intersect(unlist(missing_dates), sleep_df$ID)
+missing_latest <- list()
+for(id in dual_participants){
+  temp_protect_df <- protect_df %>% filter(ID == id)
+  temp_sleep_df <- sleep_df %>% filter(ID == id)
+  max_protect_date <- max(temp_protect_df$date, na.rm = TRUE)
+  max_sleep_date <- max(temp_sleep_df$date)
+  max_date <- max(max_protect_date, max_sleep_date)
+  if(max_date == max_protect_date){
+    missing_latest[length(missing_latest) + 1] <- id
+  }
+}
+
+scored_df1 <- data.frame(
+  ID = as.numeric(),
+  Latest_Date = as.Date(character()),
+  Latest_Score = as.numeric(),
+  Mean_Score = as.numeric()
+)
+full_df <- df[0, ]
+full_df$total_score <- as.numeric()
+full_df$mean_score <- as.numeric()
+for(id in missing_latest){
+  temp_df <- interpolated_df %>% filter(ID == id)
+  temp_df$total_score <- temp_df %>%
+    select(contains("ham_")) %>% 
+    rowSums()
+  temp_df$mean_score <- mean(temp_df$total_score)
+  latest_score <- max(which(is.na(temp_df$date)))
+  temp_row <- data.frame(
+    ID = id,
+    Latest_Date = temp_df$date[latest_score],
+    Latest_Score = temp_df$total_score[latest_score],
+    Mean_Score = temp_df$mean_score[1]
+  )
+  scored_df1[nrow(scored_df1) + 1, ] <- temp_row
+  
+  start_index <- nrow(full_df) + 1
+  end_index <- nrow(full_df) + nrow(temp_df)
+  full_df[start_index:end_index, ] <- temp_df
+}
+
+interpolated_df <- interpolated_df %>% filter(!ID %in% missing_latest)
+
+scored_df2 <- scored_df1[0, ]
+for(id in unique(interpolated_df$ID)){
+  temp_df <- interpolated_df %>% filter(ID == id)
+  temp_df$total_score <- temp_df %>%
+    select(contains("ham_")) %>%
+    rowSums()
+  temp_df$mean_score <- mean(temp_df$total_score)
+  max_date <- max(temp_df$date, na.rm = TRUE)
+  latest_score <- which(temp_df$date == max_date)
+  temp_row <- data.frame(
+    ID = id,
+    Latest_Date = temp_df$date[latest_score],
+    Latest_Score = temp_df$total_score[latest_score],
+    Mean_Score = temp_df$mean_score[1]
+  )
+  scored_df2[nrow(scored_df2) + 1, ] <- temp_row
+  
+  start_index <- nrow(full_df) + 1
+  end_index <- nrow(full_df) + nrow(temp_df)
+  full_df[start_index:end_index, ] <- temp_df
+}
+
+scored_df <- rbind(scored_df1, scored_df2)
+```
+
+Part d
+```{r One Year Score}
+one_year_score_df <- data.frame(
+  ID = as.numeric(),
+  First_Date = as.Date(character()),
+  One_Year_Date = as.Date(character()),
+  One_Year_Score = as.numeric()
+)
+
+for(id in unique(full_df$ID)){
+  temp_df <- full_df %>% filter(ID == id)
+  first_date <- min(temp_df$date, na.rm = TRUE)
+  one_year_date <- first_date + 365
+  date_diff <- abs(temp_df$date - one_year_date)
+  
+  one_year_approx <- which(date_diff == min(date_diff, na.rm = TRUE))
+  closest_one_year_date <- temp_df$date[one_year_approx]
+  one_year_score <- temp_df$total_score[one_year_approx]
+  temp_row <- data.frame(
+    ID = id,
+    First_Date = first_date,
+    One_Year_Date = closest_one_year_date,
+    One_Year_Score = one_year_score
+  )
+  one_year_score_df[nrow(one_year_score_df) + 1, ] <- temp_row
+}
+
+scored_df <- scored_df %>%
+  left_join(one_year_score_df, by = "ID") %>%
+  relocate(First_Date, One_Year_Date, One_Year_Score, .after = 1)
+```
+
+```{r}
+final_df <- scored_df %>%
+  mutate(Mean_Score = round(Mean_Score, 1)) %>%
+  select(ID, One_Year_Score, Latest_Score, Mean_Score) %>%
+  arrange(ID)
+
+rm(list = setdiff(ls(), c("final_df", "full_df", "recruitment_data")))
+```
+
+```{r Recruitment Cleaning}
+plot_data <- recruitment_data
+plot_data$RecruitSource <- case_match(
+  plot_data$RecruitSource,
+  "02 Voluntary Inpatient" ~ "Inpatient",
+  "03 Outpatient" ~ "Outpatient",
+  "06 Magazine/Newspaper" ~ "Magazine/Newspaper",
+  "07 Pitt+Me/CTSI" ~ "Pitt+Me/CTSI",
+  "08 Clinic/PI/Affiliation Referral" ~ "Referral",
+  "09 Flyers/Posters" ~ "Flyers/Posters",
+  "10 Word of Mouth" ~ "Word of Mouth",
+  "Other" ~ "Other"
+)
+
+plot_data$Group <- case_match(
+  plot_data$Group,
+  "1HC" ~ "HC",
+  "2DNA" ~ "DNA",
+  "3ATT" ~ "ATT",
+  "NON" ~ "NON",
+  "NA/ineligible" ~ "NA/Ineligible"
+)
+plot_data$Group <- factor(plot_data$Group, 
+    levels = c("HC", "DNA", "ATT", "NON", "NA/Ineligible"))
+
+plot_data$Gender <- case_match(
+  plot_data$Gender,
+  "M" ~ "Male",
+  "F" ~ "Female"
+)
+
+plot_data$Age_Group <- case_match(
+  plot_data$Age,
+  30:39 ~ "30-39",
+  40:49 ~ "40-49",
+  50:59 ~ "50-59",
+  60:69 ~ "60-69",
+  70:79 ~ "70-79"
+)
+
+write.csv(plot_data, "plot_data.csv", row.names = FALSE)
+```
+
+```{r}
+table_data <- final_df %>% 
+  mutate(across(everything(), ~format(., digits = 3)))
+colnames(table_data) <- c("ID", "One Year Score", "Latest Score", "Mean Score")
+final_table <- nice_table(head(table_data))
+final_table
+```

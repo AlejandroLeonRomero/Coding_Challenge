@@ -1,0 +1,143 @@
+---
+output:
+  pdf_document: default
+header-includes:
+   - \usepackage{helvet}
+   - \renewcommand{\familydefault}{\sfdefault}
+   - \renewcommand{\normalsize}{\fontsize{14pt}{16pt}\selectfont}
+---
+```{r, echo=FALSE, message=FALSE}
+library(ggplot2)
+library(dplyr)
+plot_data <- read.csv("plot_data.csv")
+plot_data$RecruitSource <- factor(plot_data$RecruitSource, 
+    levels = c("Flyers/Posters", "Pitt+Me/CTSI", "Inpatient", "Outpatient", "Magazine/Newspaper", "Other", "Referral", "Word of Mouth"))
+age_colors <- c("#ffb703", "#fb8500", "#8ecae6", "#219ebc", "#023047")
+plot_data$Age_Group <- factor(plot_data$Age_Group, 
+    levels = c("70-79", "60-69", "50-59", "40-49", "30-39"))
+
+base_plot <- ggplot(plot_data) +
+  theme_minimal() +
+  theme(
+    panel.border = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = margin(0.1, 0.1, 0.1, 0.1, "cm"),
+    axis.title.x = element_text(margin = margin(t = 10), size = 12),
+    axis.title.y = element_text(margin = margin(r = 10), size = 12),
+    axis.line = element_line(color = "black"),
+    axis.text = element_text(color = "black"),
+    axis.ticks = element_line(color = "black")
+  )
+
+age_plot <- base_plot +
+  aes(x = RecruitSource, fill = Age_Group) +
+  geom_bar(width = 0.5) +
+  scale_fill_manual(values = age_colors) +
+  scale_y_continuous(limits = c(0,17),
+                     breaks = seq(0, 18, by = 1),
+                     labels = function(x) ifelse(x %% 2 == 0, x, ""),
+                     expand = expansion(mult = c(0, 0.05))
+                     ) +
+  labs(
+    x = "Source",
+    y = "Count",
+    fill = "Age Group")
+
+
+gender_plot <- base_plot+
+  aes(x = RecruitSource, fill = Gender) +
+  geom_bar(position = position_dodge(preserve = 'single', width = 0.9)) +
+  scale_y_continuous(limits = c(0,14),
+                     breaks = seq(0, 14, by = 1),
+                     labels = function(x) ifelse(x %% 2 == 0, x, ""),
+                     expand = expansion(mult = c(0, 0.05))
+                     ) +
+  scale_fill_manual(values = c("Female" = "#fdb0c0", "Male" = "#87ceeb")) +
+  labs(
+    x = "Source",
+    y = "Count",
+    fill = "Gender")
+
+
+group_plot_data <- as.data.frame(table(plot_data$RecruitSource, plot_data$Group))
+colnames(group_plot_data) <- c("RecruitSource", "Group", "Count")
+group_plot_data <- group_plot_data %>%
+  filter(Count > 0)
+group_plot_data$RecruitSource <- factor(group_plot_data$RecruitSource, 
+                             levels = c("Referral", "Pitt+Me/CTSI", "Word of Mouth", "Magazine/Newspaper", "Other", "Outpatient", "Inpatient", "Flyers/Posters"))
+group_plot_data$Group <- factor(group_plot_data$Group, 
+                         levels = c("ATT", "NON", "DNA", "HC", "NA/Ineligible"))
+
+group_colors <- list(
+  ATT = "#4E79A7",
+  NON = "#F28E2B",
+  DNA = "#E15759",
+  HC = "#76B7B2",
+  `NA/Ineligible` = "#59A14F"
+)
+make_group_plot <- function(group_name, y_margin = 10){
+  ggplot(group_plot_data %>% filter(Group == group_name)) +
+    geom_bar(aes(x=RecruitSource, y=Count), stat="identity", fill=group_colors[[group_name]]) +
+    coord_flip() +
+    scale_y_continuous(
+                       limits = c(0, 12.5),
+                       breaks = seq(0, 12, by=1),
+                       labels = function(x) ifelse(x %% 2 == 0, x, ""),
+                       expand = expansion(mult = c(0, 0.05))
+                       ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.border = element_blank(),
+    plot.margin = margin(0.1, 0.1, 0.1, 0.1, "cm"),
+    panel.grid = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 10), size = 8),
+    axis.title.y = element_text(margin = margin(r = y_margin), size = 8),
+    axis.line = element_line(color = "black"),
+    axis.text = element_text(color = "black"),
+    axis.ticks = element_line(color = "black"),
+    plot.title = element_text(size = 10)
+  ) +
+  xlab("Source") +
+  ylab("Count") +
+  ggtitle(group_name)
+}
+
+ATT_plot <- make_group_plot("ATT")
+NON_plot <- make_group_plot("NON")
+DNA_plot <- make_group_plot("DNA", y_margin = 55)
+HC_plot <- make_group_plot("HC", 43)
+NA_plot <- make_group_plot("NA/Ineligible", 43)
+```
+Recruitment Source by Age
+\vspace{-30pt}
+```{r, echo=FALSE, fig.height=6, fig.width=10, fig.align='left'}
+age_plot
+```
+Recruitment Source by Gender
+\vspace{-30pt}
+```{r, echo=FALSE, fig.height=6, fig.width=10, fig.align='left'}
+gender_plot
+```
+\newpage
+Recruitment Source by Group
+```{r, echo=FALSE, fig.height=2.5, fig.width=6, fig.align='left'}
+ATT_plot
+```
+
+```{r, echo=FALSE, fig.height=2.1, fig.width=6, fig.align='left'}
+NON_plot
+```
+
+```{r, echo=FALSE, fig.height=1.4, fig.width=6, fig.align='left'}
+DNA_plot
+```
+
+```{r, echo=FALSE, fig.height=0.95, fig.width=6, fig.align='left'}
+HC_plot
+```
+
+```{r, echo=FALSE, fig.height=0.95, fig.width=6, fig.align='left'}
+NA_plot
+```
+
