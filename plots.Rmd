@@ -19,9 +19,7 @@ plot_data$Age_Group <- factor(plot_data$Age_Group,
 base_plot <- ggplot(plot_data) +
   theme_minimal() +
   theme(
-    panel.border = element_blank(),
     panel.grid = element_blank(),
-    plot.margin = margin(0.1, 0.1, 0.1, 0.1, "cm"),
     axis.title.x = element_text(margin = margin(t = 10), size = 12),
     axis.title.y = element_text(margin = margin(r = 10), size = 12),
     axis.line = element_line(color = "black"),
@@ -88,8 +86,6 @@ make_group_plot <- function(group_name, y_margin = 10){
   theme_minimal() +
   theme(
     legend.position = "none",
-    panel.border = element_blank(),
-    plot.margin = margin(0.1, 0.1, 0.1, 0.1, "cm"),
     panel.grid = element_blank(),
     axis.title.x = element_text(margin = margin(t = 10), size = 8),
     axis.title.y = element_text(margin = margin(r = y_margin), size = 8),
@@ -105,7 +101,7 @@ make_group_plot <- function(group_name, y_margin = 10){
 
 ATT_plot <- make_group_plot("ATT")
 NON_plot <- make_group_plot("NON")
-DNA_plot <- make_group_plot("DNA", y_margin = 55)
+DNA_plot <- make_group_plot("DNA", 55)
 HC_plot <- make_group_plot("HC", 43)
 NA_plot <- make_group_plot("NA/Ineligible", 43)
 ```
