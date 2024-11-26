@@ -117,11 +117,11 @@ gender_plot
 ```
 \newpage
 Recruitment Source by Group
-```{r, echo=FALSE, fig.height=2.5, fig.width=6, fig.align='left'}
+```{r, echo=FALSE, fig.height=2.4, fig.width=6, fig.align='left'}
 ATT_plot
 ```
 
-```{r, echo=FALSE, fig.height=2.1, fig.width=6, fig.align='left'}
+```{r, echo=FALSE, fig.height=2, fig.width=6, fig.align='left'}
 NON_plot
 ```
 
@@ -129,11 +129,11 @@ NON_plot
 DNA_plot
 ```
 
-```{r, echo=FALSE, fig.height=0.95, fig.width=6, fig.align='left'}
+```{r, echo=FALSE, fig.height=1.02, fig.width=6, fig.align='left'}
 HC_plot
 ```
 
-```{r, echo=FALSE, fig.height=0.95, fig.width=6, fig.align='left'}
+```{r, echo=FALSE, fig.height=1.02, fig.width=6, fig.align='left'}
 NA_plot
 ```
 
